@@ -1,0 +1,131 @@
+version: '3'
+services:
+
+  nats-server:
+    image: nats:latest
+    ports:
+#      - "4222:4222"
+#      - "6222:6222"
+      - "8222:8222"
+
+  client-gateway:
+    depends_on:
+      - nats-server
+      - products-ms
+      - orders-ms
+      - orders-db
+    build: ./client-gateway
+    ports:
+      - ${CLIENT_GATEWAY_PORT}:3000
+    volumes:
+      - ./client-gateway/src:/usr/src/app/src
+    command: npm run start:dev
+    environment:
+      - PORT=${PORTS_APP}
+      - NATS_SERVERS=${NATS_SERVERS}
+
+  products-ms:
+    depends_on:
+      - nats-server
+    build: ./products-ms
+#    ports:
+#      - "3000:3000"
+    volumes:
+      - ./products-ms/src:/usr/src/app/src
+    command: npm run start:dev
+    environment:
+      - PORT=${PORTS_APP}
+      - NATS_SERVERS=${NATS_SERVERS}
+      - DATABASE_URL=file:./dev.db
+      
+  auth-ms:
+    depends_on:
+      - nats-server
+    build: ./auth-ms
+#    ports:
+#      - "3000:3000"
+    volumes:
+      - ./auth-ms/src:/usr/src/app/src
+    command: npm run start:dev
+    environment:
+      - PORT=${PORTS_APP}
+      - NATS_SERVERS=${NATS_SERVERS}
+      - DATABASE_URL=${MONGO_CONFIG_MONGODB_URL}
+      - JWT_SECRET=${JWT_SECRET}
+  
+  orders-ms:
+    depends_on:
+      - nats-server
+      - products-ms
+      - orders-db
+    build: ./orders-ms
+#    ports:
+#      - "3000:3000"
+    volumes:
+      - ./orders-ms/src:/usr/src/app/src
+    command: npm run start:dev
+    environment:
+      - PORT=${PORTS_APP}
+      - NATS_SERVERS=${NATS_SERVERS}
+      - DATABASE_URL=${POSTGRES_ORDERS_HOST}
+
+  orders-db:
+    depends_on:
+      - nats-server
+    container_name: orders_database
+    image: postgres:16.2
+    restart: always
+    volumes:
+      - ./orders-ms/postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+
+# auth-db:
+#   depends_on:
+#     - nats-server
+#   image: mongo 
+#   restart: always 
+#   ports:
+#     - 27017:27017
+#   environment:
+#     - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+#     - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+#   volumes:
+#     - ./auth-ms/mongodb:/data/db
+#     - ./auth-ms/mongodb/log:/var/log/mongodb
+  
+# mongo-express:
+#   image: mongo-express
+#   restart: always
+#   ports:
+#     - 8081:8081
+#   environment:
+#     - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_INITDB_ROOT_USERNAME}
+#     - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+#     - ME_CONFIG_MONGODB_URL=mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@auth-db:27017/
+#     - ME_CONFIG_BASICAUTH=false
+
+# ========================================================
+# Payments
+# ========================================================
+  payments-ms:
+    depends_on: 
+      - orders-ms
+    container_name: payments-ms
+    build: ./payments-ms
+    ports:
+      - ${PAYMENTS_MS_PORT}:${PAYMENTS_MS_PORT}
+    volumes:
+      - ./payments-ms/src:/usr/src/app/src
+    command: npm run start:dev
+    environment:
+      - PORT=${PAYMENTS_MS_PORT}
+      - NATS_SERVERS=${NATS_SERVERS}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_SUCCESS_URL=${STRIPE_SUCCESS_URL}
+      - STRIPE_CANCEL_URL=${STRIPE_CANCEL_URL}
+      - STRIPE_ENDPOINT_SECRET=${STRIPE_ENDPOINT_SECRET}
