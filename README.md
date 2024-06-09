@@ -29,6 +29,8 @@ cp env.template .env
 
 #### Ejecutar Docker
 docker-compose up --build
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up
  
 
 

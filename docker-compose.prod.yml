@@ -20,7 +20,7 @@ services:
     build:
       context: ./auth-ms
       dockerfile: dockerfile.prod
-    image: orders-ms
+    image: auth-ms
     environment:
       - PORT=${PORTS_APP}
       - NATS_SERVERS=${NATS_SERVERS}
@@ -48,6 +48,7 @@ services:
     environment:
       - PORT=${PORTS_APP}
       - NATS_SERVERS=${NATS_SERVERS}
+      - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=${POSTGRES_ORDERS_HOST}
 
 # ========================================================
